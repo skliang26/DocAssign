@@ -1,0 +1,62 @@
+services:
+  document_management:
+    build: 
+      context: ./services/document_management
+    container_name: document_management_service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DOCUMENT_MANAGEMENT_PORT=${DOCUMENT_MANAGEMENT_PORT}
+      - CHROMA_DB_HOST=chroma_db_service
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+    ports:
+      - "${DOCUMENT_MANAGEMENT_PORT}:${DOCUMENT_MANAGEMENT_PORT}"
+    depends_on:
+      - chroma_db
+    volumes:
+      - ./services/document_management/app/data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${DOCUMENT_MANAGEMENT_PORT}/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    develop:
+       watch:
+         - action: sync
+           path: ./services/document_management/app
+           target: /app
+           ignore:
+             - "__pycache__"
+             - "*.pyc"
+         - action: rebuild
+           path: ./services/document_management/requirements.txt
+
+  chroma_db:
+    build:
+      context: ./services/chroma_db
+    container_name: chroma_db_service
+    ports:
+      - "${CHROMA_DB_PORT}:8000"
+    volumes:
+      - ./services/chroma_db/data:/data
+    environment:
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+  rag_service:
+    build:
+      context: ./services/rag_service
+    container_name: rag_service
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_DB_HOST=${CHROMA_DB_HOST}
+      - CHROMA_DB_PORT=${CHROMA_DB_PORT}
+      - RAG_PORT=${RAG_PORT}
+    ports:
+      - "${RAG_PORT}:${RAG_PORT}"
+    depends_on:
+      - chroma_db
+    volumes:
+      - ./services/rag_service/data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
